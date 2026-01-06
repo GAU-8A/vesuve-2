@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Raleway } from "next/font/google";
+import { Raleway, Roboto_Condensed } from "next/font/google";
 import "./globals.css";
 
 const raleway = Raleway({
@@ -8,7 +8,14 @@ const raleway = Raleway({
   weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
 });
 
+const robotoCondensed = Roboto_Condensed({
+  variable: "--font-roboto-condensed",
+  subsets: ["latin"],
+  weight: ["300", "400", "700"],
+});
+
 export const metadata: Metadata = {
+  metadataBase: new URL("https://vesuveagency.com"),
   title: {
     default: "VESUVE AGENCY | Worldwide Talents Agency for Electronic Music",
     template: "%s | VESUVE AGENCY",
@@ -58,7 +65,6 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
   },
 };
 
@@ -69,12 +75,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${raleway.variable} antialiased`}>
-        {/* Grain overlay */}
-        <div className="grain" aria-hidden="true" />
-        {/* Scanlines overlay */}
-        <div className="scanlines" aria-hidden="true" />
-        {/* Main content */}
+      <body
+        className={`${raleway.variable} ${robotoCondensed.variable} antialiased bg-black text-white`}
+      >
         {children}
       </body>
     </html>
