@@ -6,30 +6,25 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { artists } from "@/lib/artists";
 
-// Dynamic import for DisplacementCanvas (client-side only)
-const DisplacementCanvas = dynamic(
-  () => import("@/components/effects/DisplacementCanvas"),
+// Dynamic import for ArtistDisplacement (client-side only, preloads all textures)
+const ArtistDisplacement = dynamic(
+  () => import("@/components/effects/ArtistDisplacement"),
   { ssr: false }
 );
 
 export default function Home() {
   const [activeArtist, setActiveArtist] = useState(0);
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const [showDisplacement, setShowDisplacement] = useState(false);
 
   // Enable displacement after mount
   useEffect(() => {
-    const timer = setTimeout(() => setShowDisplacement(true), 500);
+    const timer = setTimeout(() => setShowDisplacement(true), 300);
     return () => clearTimeout(timer);
   }, []);
 
   const handleArtistHover = (index: number) => {
     if (index !== activeArtist) {
-      setIsTransitioning(true);
-      setTimeout(() => {
-        setActiveArtist(index);
-        setIsTransitioning(false);
-      }, 200);
+      setActiveArtist(index);
     }
   };
 
@@ -108,30 +103,21 @@ export default function Home() {
 
         {/* Right Column - Artist Image with Displacement */}
         <div className="w-[65%] h-full relative">
-          {/* Displacement Canvas */}
-          {showDisplacement && (
-            <div
-              className={`
-                absolute inset-0 transition-opacity duration-500
-                ${isTransitioning ? "opacity-0" : "opacity-100"}
-              `}
-            >
-              <DisplacementCanvas
-                key={currentArtist.slug}
-                imageUrl={currentArtist.photo}
-              />
-            </div>
-          )}
+          {/* Base image - always visible as fallback */}
+          <Image
+            src={currentArtist.photo}
+            alt={currentArtist.name}
+            fill
+            className="object-cover"
+            priority
+            sizes="65vw"
+          />
 
-          {/* Fallback image (before displacement loads) */}
-          {!showDisplacement && (
-            <Image
-              src={currentArtist.photo}
-              alt={currentArtist.name}
-              fill
-              className="object-cover"
-              priority
-              sizes="65vw"
+          {/* Displacement Canvas - single instance, preloads all textures */}
+          {showDisplacement && (
+            <ArtistDisplacement
+              artists={artists}
+              activeIndex={activeArtist}
             />
           )}
 

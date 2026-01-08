@@ -1,19 +1,22 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import * as PIXI from "pixi.js";
 import gsap from "gsap";
 
 interface DisplacementCanvasProps {
   imageUrl: string;
   className?: string;
+  onLoad?: () => void;
+  onError?: () => void;
 }
 
-export default function DisplacementCanvas({ imageUrl, className = "" }: DisplacementCanvasProps) {
+export default function DisplacementCanvas({ imageUrl, className = "", onLoad, onError }: DisplacementCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
   const displacementSpriteRef = useRef<PIXI.Sprite | null>(null);
   const imageContainerRef = useRef<PIXI.Container | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   const setupPixi = useCallback(async () => {
     if (!containerRef.current || appRef.current) return;
@@ -155,10 +158,15 @@ export default function DisplacementCanvas({ imageUrl, className = "" }: Displac
         container.removeEventListener("mouseleave", handleMouseLeave);
       };
 
+      // Mark as loaded successfully
+      setIsLoaded(true);
+      onLoad?.();
+
     } catch (error) {
       console.error("Failed to load textures:", error);
+      onError?.();
     }
-  }, [imageUrl]);
+  }, [imageUrl, onLoad, onError]);
 
   useEffect(() => {
     setupPixi();
@@ -191,8 +199,12 @@ export default function DisplacementCanvas({ imageUrl, className = "" }: Displac
   return (
     <div
       ref={containerRef}
-      className={`absolute inset-0 overflow-hidden ${className}`}
-      style={{ touchAction: "none" }}
+      className={`absolute inset-0 overflow-hidden transition-opacity duration-300 ${className}`}
+      style={{
+        touchAction: "none",
+        opacity: isLoaded ? 1 : 0,
+        pointerEvents: isLoaded ? "auto" : "none"
+      }}
     />
   );
 }
