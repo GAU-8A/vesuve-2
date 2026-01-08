@@ -1,45 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import { artists } from "@/lib/artists";
 
-const artists = [
-  {
-    name: "NICO MORENO",
-    slug: "nico-moreno",
-    photo: "https://vesuveagency.com/wp-content/uploads/2024/06/Nico-2-scaled.jpeg",
-    color: "#888888",
-  },
-  {
-    name: "PAWLOWSKI",
-    slug: "pawlowski",
-    photo: "https://vesuveagency.com/wp-content/uploads/2024/06/Pawlo-4-scaled-e1718199223772.jpeg",
-    color: "#FF0000",
-  },
-  {
-    name: "ØTTA",
-    slug: "otta",
-    photo: "https://vesuveagency.com/wp-content/uploads/2024/04/otta_press-0-scaled-e1717593036363.jpg",
-    color: "#00FFFF",
-  },
-  {
-    name: "UNDER THE MOON",
-    slug: "under-the-moon",
-    photo: "https://vesuveagency.com/wp-content/uploads/2024/06/Numerique_SamuelNogues_003-scaled.jpg",
-    color: "#00FF00",
-  },
-  {
-    name: "MATRAKK",
-    slug: "matrakk",
-    photo: "https://vesuveagency.com/wp-content/uploads/2024/11/PHOTO-2024-11-21-17-18-44-1.jpg",
-    color: "#AAFF00",
-  },
-];
+// Dynamic import for DisplacementCanvas (client-side only)
+const DisplacementCanvas = dynamic(
+  () => import("@/components/effects/DisplacementCanvas"),
+  { ssr: false }
+);
 
 export default function Home() {
   const [activeArtist, setActiveArtist] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showDisplacement, setShowDisplacement] = useState(false);
+
+  // Enable displacement after mount
+  useEffect(() => {
+    const timer = setTimeout(() => setShowDisplacement(true), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleArtistHover = (index: number) => {
     if (index !== activeArtist) {
@@ -47,9 +29,11 @@ export default function Home() {
       setTimeout(() => {
         setActiveArtist(index);
         setIsTransitioning(false);
-      }, 150);
+      }, 200);
     }
   };
+
+  const currentArtist = artists[activeArtist];
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-black text-white relative">
@@ -95,8 +79,18 @@ export default function Home() {
             </ul>
           </nav>
 
+          {/* Genre indicator */}
+          <div className="mt-8">
+            <p
+              className="text-xs tracking-[0.3em] uppercase opacity-60 transition-all duration-300"
+              style={{ color: currentArtist.color }}
+            >
+              {currentArtist.genre}
+            </p>
+          </div>
+
           {/* Nav Links */}
-          <div className="mt-16 flex gap-8">
+          <div className="mt-12 flex gap-8">
             <Link
               href="/about"
               className="text-sm uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity"
@@ -112,45 +106,51 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Right Column - Artist Image */}
+        {/* Right Column - Artist Image with Displacement */}
         <div className="w-[65%] h-full relative">
-          {/* Image avec effet de transition */}
-          <div
-            className={`
-              absolute inset-0 transition-opacity duration-300
-              ${isTransitioning ? "opacity-0" : "opacity-100"}
-            `}
-          >
+          {/* Displacement Canvas */}
+          {showDisplacement && (
+            <div
+              className={`
+                absolute inset-0 transition-opacity duration-500
+                ${isTransitioning ? "opacity-0" : "opacity-100"}
+              `}
+            >
+              <DisplacementCanvas
+                key={currentArtist.slug}
+                imageUrl={currentArtist.photo}
+              />
+            </div>
+          )}
+
+          {/* Fallback image (before displacement loads) */}
+          {!showDisplacement && (
             <Image
-              src={artists[activeArtist].photo}
-              alt={artists[activeArtist].name}
+              src={currentArtist.photo}
+              alt={currentArtist.name}
               fill
               className="object-cover"
-              style={{
-                filter: `grayscale(100%) sepia(20%) hue-rotate(${
-                  activeArtist * 60
-                }deg)`,
-                mixBlendMode: "normal",
-              }}
               priority
               sizes="65vw"
             />
-            {/* Color overlay */}
-            <div
-              className="absolute inset-0 mix-blend-multiply opacity-60"
-              style={{ backgroundColor: artists[activeArtist].color }}
-            />
-            {/* Gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/50 to-transparent" />
-          </div>
+          )}
+
+          {/* Color overlay */}
+          <div
+            className="absolute inset-0 mix-blend-color opacity-40 pointer-events-none transition-colors duration-500"
+            style={{ backgroundColor: currentArtist.color }}
+          />
+
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent pointer-events-none" />
 
           {/* Artist name overlay on image */}
-          <div className="absolute bottom-12 right-12 z-10">
+          <div className="absolute bottom-12 right-12 z-10 pointer-events-none">
             <p
-              className="text-8xl md:text-9xl font-black opacity-10 tracking-tighter"
-              style={{ color: artists[activeArtist].color }}
+              className="text-7xl md:text-8xl lg:text-9xl font-black opacity-10 tracking-tighter transition-all duration-500"
+              style={{ color: currentArtist.color }}
             >
-              {artists[activeArtist].name.split(" ")[0]}
+              {currentArtist.name.split(" ")[0]}
             </p>
           </div>
         </div>
