@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -15,6 +15,17 @@ const ArtistDisplacement = dynamic(
 export default function Home() {
   const [activeArtist, setActiveArtist] = useState(0);
   const [showDisplacement, setShowDisplacement] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
+
+  // Detect mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   // Enable displacement after mount
   useEffect(() => {
@@ -28,38 +39,139 @@ export default function Home() {
     }
   };
 
+  // Handle tap on mobile (select artist, don't navigate)
+  const handleArtistTap = (e: React.MouseEvent, index: number) => {
+    if (isMobile && index !== activeArtist) {
+      e.preventDefault();
+      setActiveArtist(index);
+    }
+  };
+
+  // Swipe handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    touchEndX.current = e.changedTouches[0].clientX;
+    const diff = touchStartX.current - touchEndX.current;
+    const minSwipe = 50;
+
+    if (Math.abs(diff) > minSwipe) {
+      if (diff > 0 && activeArtist < artists.length - 1) {
+        // Swipe left = next artist
+        setActiveArtist(prev => prev + 1);
+      } else if (diff < 0 && activeArtist > 0) {
+        // Swipe right = previous artist
+        setActiveArtist(prev => prev - 1);
+      }
+    }
+  }, [activeArtist]);
+
   const currentArtist = artists[activeArtist];
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-black text-white relative">
       {/* Logo */}
-      <header className="absolute top-0 left-0 right-0 z-50 flex justify-center py-8">
+      <header className="absolute top-0 left-0 right-0 z-50 flex justify-center py-6 md:py-8">
         <Image
           src="/images/logo-white.png"
           alt="Vesuve Agency"
           width={200}
           height={50}
-          className="h-8 w-auto"
+          className="h-6 md:h-8 w-auto"
           priority
         />
       </header>
 
       {/* Main Content */}
-      <main className="h-full flex">
-        {/* Left Column - Artist List */}
-        <div className="w-[35%] h-full flex flex-col justify-center pl-12 md:pl-20 relative z-20">
+      <main className="h-full flex flex-col md:flex-row">
+        {/* Image Area (top on mobile, right on desktop) */}
+        <div
+          className="w-full md:w-[65%] h-[55%] md:h-full relative order-1 md:order-2"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          {/* Base image */}
+          <Image
+            src={currentArtist.photo}
+            alt={currentArtist.name}
+            fill
+            className="object-cover"
+            priority
+            sizes="(max-width: 768px) 100vw, 65vw"
+          />
+
+          {/* Displacement Canvas */}
+          {showDisplacement && !isMobile && (
+            <ArtistDisplacement
+              artists={artists}
+              activeIndex={activeArtist}
+            />
+          )}
+
+          {/* Color overlay */}
+          <div
+            className="absolute inset-0 mix-blend-color opacity-40 pointer-events-none transition-colors duration-500"
+            style={{ backgroundColor: currentArtist.color }}
+          />
+
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black via-black/50 to-transparent pointer-events-none" />
+
+          {/* Mobile: Swipe indicator dots */}
+          {isMobile && (
+            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-20">
+              {artists.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setActiveArtist(index)}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                    activeArtist === index
+                      ? "bg-white scale-125"
+                      : "bg-white/40"
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Mobile: View Profile button */}
+          {isMobile && (
+            <Link
+              href={`/artists/${currentArtist.slug}`}
+              className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 px-6 py-2 border border-white/50 text-xs tracking-[0.2em] uppercase backdrop-blur-sm bg-black/30 active:bg-white active:text-black transition-colors"
+            >
+              View Profile
+            </Link>
+          )}
+
+          {/* Artist name overlay on image (desktop only) */}
+          <div className="hidden md:block absolute bottom-12 right-12 z-10 pointer-events-none">
+            <p
+              className="text-7xl md:text-8xl lg:text-9xl font-black opacity-10 tracking-tighter transition-all duration-500"
+              style={{ color: currentArtist.color }}
+            >
+              {currentArtist.name.split(" ")[0]}
+            </p>
+          </div>
+        </div>
+
+        {/* Artist List (bottom on mobile, left on desktop) */}
+        <div className="w-full md:w-[35%] h-[45%] md:h-full flex flex-col justify-center px-6 md:pl-12 lg:pl-20 relative z-20 order-2 md:order-1">
           <nav>
-            <ul className="space-y-2">
+            <ul className="space-y-1 md:space-y-2">
               {artists.map((artist, index) => (
                 <li key={artist.slug}>
                   <Link
                     href={`/artists/${artist.slug}`}
+                    onClick={(e) => handleArtistTap(e, index)}
                     className={`
-                      block text-2xl md:text-4xl lg:text-5xl font-bold tracking-tight
+                      block text-xl md:text-4xl lg:text-5xl font-bold tracking-tight
                       transition-all duration-300 ease-out
                       ${activeArtist === index
-                        ? "opacity-100 translate-x-4"
-                        : "opacity-40 hover:opacity-70"
+                        ? "opacity-100 md:translate-x-4"
+                        : "opacity-40"
                       }
                     `}
                     onMouseEnter={() => handleArtistHover(index)}
@@ -75,17 +187,17 @@ export default function Home() {
           </nav>
 
           {/* Genre indicator */}
-          <div className="mt-8">
+          <div className="mt-4 md:mt-8">
             <p
-              className="text-xs tracking-[0.3em] uppercase opacity-60 transition-all duration-300"
+              className="text-[10px] md:text-xs tracking-[0.3em] uppercase opacity-60 transition-all duration-300"
               style={{ color: currentArtist.color }}
             >
               {currentArtist.genre}
             </p>
           </div>
 
-          {/* Nav Links */}
-          <div className="mt-12 flex gap-8">
+          {/* Nav Links (desktop only) */}
+          <div className="hidden md:flex mt-12 gap-8">
             <Link
               href="/about"
               className="text-sm uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity"
@@ -100,50 +212,10 @@ export default function Home() {
             </Link>
           </div>
         </div>
-
-        {/* Right Column - Artist Image with Displacement */}
-        <div className="w-[65%] h-full relative">
-          {/* Base image - always visible as fallback */}
-          <Image
-            src={currentArtist.photo}
-            alt={currentArtist.name}
-            fill
-            className="object-cover"
-            priority
-            sizes="65vw"
-          />
-
-          {/* Displacement Canvas - single instance, preloads all textures */}
-          {showDisplacement && (
-            <ArtistDisplacement
-              artists={artists}
-              activeIndex={activeArtist}
-            />
-          )}
-
-          {/* Color overlay */}
-          <div
-            className="absolute inset-0 mix-blend-color opacity-40 pointer-events-none transition-colors duration-500"
-            style={{ backgroundColor: currentArtist.color }}
-          />
-
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent pointer-events-none" />
-
-          {/* Artist name overlay on image */}
-          <div className="absolute bottom-12 right-12 z-10 pointer-events-none">
-            <p
-              className="text-7xl md:text-8xl lg:text-9xl font-black opacity-10 tracking-tighter transition-all duration-500"
-              style={{ color: currentArtist.color }}
-            >
-              {currentArtist.name.split(" ")[0]}
-            </p>
-          </div>
-        </div>
       </main>
 
       {/* Footer */}
-      <footer className="absolute bottom-0 left-0 right-0 z-50 flex justify-between items-center px-12 py-6">
+      <footer className="absolute bottom-0 left-0 right-0 z-50 flex justify-between items-center px-6 md:px-12 py-4 md:py-6">
         <a
           href="https://www.instagram.com/vesuveagency/"
           target="_blank"
@@ -164,7 +236,7 @@ export default function Home() {
             <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
           </svg>
         </a>
-        <p className="text-xs opacity-30">© 2024 Vesuve Agency — France</p>
+        <p className="text-[10px] md:text-xs opacity-30">© 2024 Vesuve Agency — France</p>
       </footer>
 
       {/* Scanlines overlay */}
